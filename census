@@ -1,79 +1,89 @@
 #!/bin/bash
 
+#Census
+#Written in November 2017 by Owen Davidson
 
-cd
+#Census utilizes a primitive caching system to identify changes in a user's
+# filesystem. Current census data is sorted in ~/.census for user review. This
+# program is intended to be used in a crontab, run every few hours. The script
+# itself is lightweight but runtime can get quite long depending on the number of
+# files being assessed, so an increment lower than one hour is not recommended.
+
+
+cd                                                                              #move to user's home directory and set the starting point 'hdir'
 hdir=$(pwd)
 hdir+="/"
 
 stdindent="    "
 
-let firstrun=-1
+let firstrun=-1                                                                 #declare flag for first-time setup
 
-if [[ -e ~/.census ]]
+if [[ -e ~/.census ]]                                                           #check to see if this program has been run before
 then
   let firstrun=0
-else
+else                                                                            #set flag accordingly. 0=yes, 1=no (C++ convention)
   let firstrun=1
 fi
 
-if (( firstrun == 1 ))
+if (( firstrun == 1 ))                                                          #if this program hasn't been run before...
 then
-  ls -lR ~ | grep ^- | awk '{print $9}' >~/.census
+  ls -lR ~ | grep ^- | awk '{print $9}' >~/.census                              #...grab the initial census data, store it in .census in the user's home directory, and bail.
   exit
-elif ((firstrun == 0 ))
+elif ((firstrun == 0 ))                                                         #otherwise...
 then
-  created=()
+  created=()                                                                                                  #declare lists for new and missing files
   deleted=()
   for z in `ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '<' | awk '{print $1}'`
   do
-	created+=($z)
+	created+=($z)                                                                                               #add files to created() that are new and on their own line in the census data
   done
 
   for w in `ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '>' | awk '{print $2}'`
   do
-	deleted+=($w)
+	deleted+=($w)                                                                                               #add files to deleted() that are on their own in the old census data and are now missing
   done
 
   for b in $(ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '|' | awk '{print $3}')
   do
-	deleted+=($b)
+	deleted+=($b)                                                                                               #add files to deleted() that are missing but share a line with the new census data
   done
 
   for a in $(ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '|' | awk '{print $1}')
   do
-	created+=($a)
+	created+=($a)                                                                                               #add files to created() that are new and sharing a line with the old census data
   done
 
 
-  if (( ${#created[*]} > 0 ))
+  if (( ${#created[*]} > 0 ))                                                   #if there are new files to speak of...
   then
     echo New files:
     for x in "${created[@]}"
     do
-	if [[ $x != .* ]]
-	then
-	  found=$(find ~ -name $x)
-	  found=${found#$hdir}
-	  echo $found >>~/.censusTMP
-	fi
+	     if [[ $x != .* ]]                                                        #...and they are not hidden...
+	       then
+	          found=$(find ~ -name $x)
+	          found=${found#$hdir}
+	          echo $found >>~/.censusTMP                                          #...load them into a temporary list...
+	     fi
     done
-    sort ~/.censusTMP -o ~/.censusTMP
+    sort ~/.censusTMP -o ~/.censusTMP                                           #...sort the temporary list...
     while read line
     do
-	foundentry=$(ls -l $line | sed -n 1p)
-	echo -e "$stdindent$foundentry"
+	     foundentry=$(ls -l $line | sed -n 1p)
+	     echo -e "$stdindent$foundentry"                                          #...and speak of them.
     done < ~/.censusTMP
-    rm ~/.censusTMP 
+    rm ~/.censusTMP
 
   fi
-  if (( ${#deleted[*]} > 0 ))
+
+  if (( ${#deleted[*]} > 0 ))                                                   #if there are deleted files to speak of...
   then
     echo Deleted files:
     for y in "${deleted[@]}"
     do
-	echo -e "$stdindent$y"
+	     echo -e "$stdindent$y"                                                   #...speak of them.
     done
   fi
-  
+
 fi
-ls -lR ~ | grep ^- | awk '{print $9}' >~/.census
+ls -lR ~ | grep ^- | awk '{print $9}' >~/.census                                #take new census data and replace the old data
