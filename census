@@ -1,0 +1,79 @@
+#!/bin/bash
+
+
+cd
+hdir=$(pwd)
+hdir+="/"
+
+stdindent="    "
+
+let firstrun=-1
+
+if [[ -e ~/.census ]]
+then
+  let firstrun=0
+else
+  let firstrun=1
+fi
+
+if (( firstrun == 1 ))
+then
+  ls -lR ~ | grep ^- | awk '{print $9}' >~/.census
+  exit
+elif ((firstrun == 0 ))
+then
+  created=()
+  deleted=()
+  for z in `ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '<' | awk '{print $1}'`
+  do
+	created+=($z)
+  done
+
+  for w in `ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '>' | awk '{print $2}'`
+  do
+	deleted+=($w)
+  done
+
+  for b in $(ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '|' | awk '{print $3}')
+  do
+	deleted+=($b)
+  done
+
+  for a in $(ls -lR ~ | grep ^- | awk '{print $9}' | diff -y - ~/.census | grep '|' | awk '{print $1}')
+  do
+	created+=($a)
+  done
+
+
+  if (( ${#created[*]} > 0 ))
+  then
+    echo New files:
+    for x in "${created[@]}"
+    do
+	if [[ $x != .* ]]
+	then
+	  found=$(find ~ -name $x)
+	  found=${found#$hdir}
+	  echo $found >>~/.censusTMP
+	fi
+    done
+    sort ~/.censusTMP -o ~/.censusTMP
+    while read line
+    do
+	foundentry=$(ls -l $line | sed -n 1p)
+	echo -e "$stdindent$foundentry"
+    done < ~/.censusTMP
+    rm ~/.censusTMP 
+
+  fi
+  if (( ${#deleted[*]} > 0 ))
+  then
+    echo Deleted files:
+    for y in "${deleted[@]}"
+    do
+	echo -e "$stdindent$y"
+    done
+  fi
+  
+fi
+ls -lR ~ | grep ^- | awk '{print $9}' >~/.census
